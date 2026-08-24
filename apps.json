@@ -1,0 +1,34 @@
+{
+  "apps": [
+    {
+      "id": "about",
+      "name": "About",
+      "icon": "💻",
+      "url": "apps/about.html",
+      "desktop": true,
+      "window": { "width": 520, "height": 360 },
+      "schedule": null
+    },
+    {
+      "id": "files",
+      "name": "Dateien",
+      "icon": "📁",
+      "url": "apps/files.html",
+      "desktop": true,
+      "window": { "width": 760, "height": 520 },
+      "schedule": null
+    },
+    {
+      "id": "notes",
+      "name": "Notizen",
+      "icon": "📝",
+      "url": "apps/notes.html",
+      "desktop": true,
+      "window": { "width": 560, "height": 430 },
+      "schedule": {
+        "intervalMs": 60000,
+        "script": "apps/notes-scheduler.js"
+      }
+    }
+  ]
+}

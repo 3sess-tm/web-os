@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WebOS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="desktop" aria-label="WebOS Desktop"></main>
+  <section id="window-layer" aria-live="polite"></section>
+  <footer id="taskbar">
+    <button id="launcher" title="Start">◈</button>
+    <div id="task-items"></div>
+    <div id="clock"></div>
+  </footer>
+
+  <div id="launcher-menu" class="hidden">
+    <div class="launcher-header">Programme</div>
+    <div id="launcher-apps"></div>
+  </div>
+
+  <script type="module" src="os.js"></script>
+</body>
+</html>
