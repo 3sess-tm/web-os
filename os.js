@@ -124,38 +124,38 @@ window.addEventListener('message',handleMessage);
 
 function appIcon(app){const b=document.createElement('button');b.className='desktop-icon';b.style.left=`${10 + (state.apps.size%8)*100}px`;b.style.top=`${10 + Math.floor(state.apps.size/8)*100}px`;b.innerHTML=`<span class="icon">${app.icon||'◻'}</span><span class="label"></span>`;b.querySelector('.label').textContent=app.name;b.onclick=()=>openApp(app.id);els.desktop.appendChild(b);}
 
-function makeTask(app){const b=document.createElement('button');b.className='task-button';b.dataset.appId=app.id;b.textContent=`${app.icon||'◻'} ${app.name}`;b.onclick=()=>{const w=state.windows.get(app.id);if(w){focusWindow(w.el);w.el.classList.toggle('hidden');}};els.taskItems.appendChild(b);return b;}
+function makeTask(app, instanceId){const b=document.createElement('button');b.className='task-button';b.dataset.instanceId=instanceId;b.textContent=`${app.icon||'◻'} ${app.name}`;b.onclick=()=>{const w=state.windows.get(instanceId);if(w){w.el.classList.remove('hidden');focusWindow(w.el);}};els.taskItems.appendChild(b);return b;}
 
-function focusWindow(el){state.z++;el.style.zIndex=state.z;document.querySelectorAll('.window').forEach(w=>w.classList.remove('focused'));el.classList.add('focused');const id=el.dataset.appId;document.querySelectorAll('.task-button').forEach(b=>b.classList.toggle('active',b.dataset.appId===id));}
+function focusWindow(el){state.z++;el.style.zIndex=state.z;document.querySelectorAll('.window').forEach(w=>w.classList.remove('focused'));el.classList.add('focused');const id=el.dataset.instanceId;document.querySelectorAll('.task-button').forEach(b=>b.classList.toggle('active',b.dataset.instanceId===id));}
 
 function openApp(id, launchData=null){
   const app=state.apps.get(id); if(!app) return;
-  if(state.windows.has(id)){
-    const w=state.windows.get(id);w.el.classList.remove('hidden');focusWindow(w.el);
-    if(launchData !== null) w.frame.contentWindow.postMessage({os:'event',type:'app-open',data:launchData},'*');
-    return;
-  }
-  const el=document.createElement('section');el.className='window focused';el.dataset.appId=id;el.style.width=`${app.window?.width||640}px`;el.style.height=`${app.window?.height||420}px`;el.style.left=`${Math.max(20,(innerWidth-(app.window?.width||640))/2)}px`;el.style.top=`${Math.max(20,(innerHeight-(app.window?.height||420))/2)}px`;
-  el.innerHTML=`<header class="titlebar"><span class="title"></span><div class="window-controls"><button title="Minimieren" data-min>—</button><button title="Schließen" data-close>×</button></div></header><div class="window-content"><iframe allow="clipboard-read; clipboard-write"></iframe><div class="resizer"></div></div>`;
+  const instanceId=`${id}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  const width=app.window?.width||640, height=app.window?.height||420;
+  const el=document.createElement('section');el.className='window focused';el.dataset.appId=id;el.dataset.instanceId=instanceId;el.style.width=`${width}px`;el.style.height=`${height}px`;el.style.left=`${Math.max(20,(workspaceWidth()-width)/2)}px`;el.style.top=`${Math.max(20,(innerHeight-48-height)/2)}px`;
+  el.innerHTML=`<header class="titlebar"><span class="title"></span><div class="window-controls"><button title="Minimieren" data-min>—</button><button title="Vollbild" data-max>□</button><button title="Schließen" data-close>×</button></div></header><div class="window-content"><iframe allow="clipboard-read; clipboard-write"></iframe><div class="resizer"></div></div>`;
   el.querySelector('.title').textContent=`${app.icon||'◻'} ${app.name}`;
   const frame=el.querySelector('iframe'); frame.src=app.url;frame.dataset.appId=id;
-  el.querySelector('[data-close]').onclick=()=>closeApp(id);el.querySelector('[data-min]').onclick=()=>el.classList.add('hidden');
+  el.querySelector('[data-close]').onclick=()=>closeApp(instanceId);el.querySelector('[data-min]').onclick=()=>el.classList.add('hidden');el.querySelector('[data-max]').onclick=()=>toggleMaximize(el);
   el.addEventListener('pointerdown',()=>focusWindow(el));
   installDrag(el,el.querySelector('.titlebar'));installResize(el,el.querySelector('.resizer'));
-  els.layer.appendChild(el);state.windows.set(id,{el,frame,task:makeTask(app)});state.frames.set(id,frame);frame.addEventListener('load',()=>{
+  els.layer.appendChild(el);state.windows.set(instanceId,{el,frame,appId:id,task:makeTask(app,instanceId)});state.frames.set(instanceId,frame);frame.addEventListener('load',()=>{
     frame.contentWindow.postMessage({os:'init',appId:id,app},'*');
     if(launchData !== null) frame.contentWindow.postMessage({os:'event',type:'app-open',data:launchData},'*');
   });focusWindow(el);
 }
-function closeApp(id){const w=state.windows.get(id);if(!w)return;state.frames.delete(id);w.el.remove();w.task.remove();state.windows.delete(id);}
-function installDrag(el,bar){bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const r=el.getBoundingClientRect();state.drag={el,dx:e.clientX-r.left,dy:e.clientY-r.top};bar.setPointerCapture(e.pointerId)});bar.addEventListener('pointermove',e=>{if(!state.drag)return;let x=e.clientX-state.drag.dx,y=e.clientY-state.drag.dy;x=Math.max(0,Math.min(innerWidth-el.offsetWidth,x));y=Math.max(0,Math.min(innerHeight-48-el.offsetHeight,y));el.style.left=x+'px';el.style.top=y+'px'});bar.addEventListener('pointerup',()=>state.drag=null);}
+function closeApp(instanceId){const direct=state.windows.get(instanceId);const ids=direct?[instanceId]:[...state.windows].filter(([,w])=>w.appId===instanceId).map(([key])=>key);for(const id of ids){const w=state.windows.get(id);state.frames.delete(id);w.el.remove();w.task.remove();state.windows.delete(id);}}
+function toggleMaximize(el){if(el.classList.contains('maximized')){el.classList.remove('maximized');el.style.left=el.dataset.left;el.style.top=el.dataset.top;el.style.width=el.dataset.width;el.style.height=el.dataset.height;return;}el.dataset.left=el.style.left;el.dataset.top=el.style.top;el.dataset.width=el.style.width;el.dataset.height=el.style.height;el.classList.add('maximized');el.style.left='0px';el.style.top='0px';}
+function workspaceWidth(){return els.desktop.offsetWidth;}
+function snapWindow(el,x){const edge=16,width=workspaceWidth();if(el.classList.contains('maximized'))return;if(x<=edge||x+el.offsetWidth>=width-edge){el.dataset.left=el.style.left;el.dataset.top=el.style.top;el.dataset.width=el.style.width;el.dataset.height=el.style.height;el.classList.add('snapped');el.classList.toggle('snap-left',x<=edge);el.classList.toggle('snap-right',x>edge);el.style.width=`${width/2}px`;el.style.height=`${innerHeight-48}px`;el.style.top='0px';}}
+function installDrag(el,bar){bar.addEventListener('pointerdown',e=>{if(e.target.closest('button')||el.classList.contains('maximized'))return;if(el.classList.contains('snapped')){el.classList.remove('snapped','snap-left','snap-right');el.style.left=el.dataset.left;el.style.top=el.dataset.top;el.style.width=el.dataset.width;el.style.height=el.dataset.height;}const r=el.getBoundingClientRect();state.drag={el,dx:e.clientX-r.left,dy:e.clientY-r.top};bar.setPointerCapture(e.pointerId)});bar.addEventListener('pointermove',e=>{if(!state.drag)return;let x=e.clientX-state.drag.dx,y=e.clientY-state.drag.dy;x=Math.max(0,Math.min(document.documentElement.scrollWidth-el.offsetWidth,x));y=Math.max(0,Math.min(innerHeight-48-el.offsetHeight,y));el.style.left=x+'px';el.style.top=y+'px';el.classList.remove('snapped','snap-left','snap-right')});bar.addEventListener('pointerup',()=>{if(state.drag){const r=state.drag.el.getBoundingClientRect();snapWindow(state.drag.el,r.left);}state.drag=null;});}
 function installResize(el,handle){handle.addEventListener('pointerdown',e=>{e.stopPropagation();const r=el.getBoundingClientRect();state.resize={el,sx:e.clientX,sy:e.clientY,w:r.width,h:r.height};handle.setPointerCapture(e.pointerId)});handle.addEventListener('pointermove',e=>{if(!state.resize)return;el.style.width=Math.max(280,state.resize.w+e.clientX-state.resize.sx)+'px';el.style.height=Math.max(180,state.resize.h+e.clientY-state.resize.sy)+'px'});handle.addEventListener('pointerup',()=>state.resize=null);}
 
 async function runSchedule(app){
   const s=app.schedule;if(!s?.intervalMs||!s?.script)return;
   setInterval(async()=>{
     try{await import(new URL(s.script,location.href).href);}catch(err){console.warn('Scheduler fehlgeschlagen',app.id,err);}
-    state.frames.get(app.id)?.contentWindow.postMessage({os:'event',type:'schedule',appId:app.id},'*');
+    [...state.windows.values()].filter(w=>w.appId===app.id).forEach(w=>w.frame.contentWindow.postMessage({os:'event',type:'schedule',appId:app.id},'*'));
   },s.intervalMs);
 }
 
